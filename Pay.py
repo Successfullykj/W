@@ -6,7 +6,7 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 # Config
 WALLET = "47HxtCmFXxqVzQSGjQgBnDC1LRTrokf3aMFocbWQRxYzjhjxkfLGjzwE3PJhrCtdQkXPunr8cZZBAiEmY5W46V1UV8mFMZh"
-BOT_TOKEN = "7971605755:AAHAh9QO9BVS9dLAWYB4ZZ1XxCGZ-15Ut2M"
+BOT_TOKEN = "8067230426:AAGmGeSe7P7hlnvoCPsw7mDpm1qbtnhASq0"
 CHAT_ID = -1002712669499  # use int for group
 
 API_URL = f"https://moneroocean.stream/api/user/{WALLET}"
