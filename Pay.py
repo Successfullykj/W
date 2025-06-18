@@ -1,8 +1,6 @@
 import time
 import requests
 import threading
-from http.server import BaseHTTPRequestHandler, HTTPServer
-import json
 
 # Config
 WALLET = "47HxtCmFXxqVzQSGjQgBnDC1LRTrokf3aMFocbWQRxYzjhjxkfLGjzwE3PJhrCtdQkXPunr8cZZBAiEmY5W46V1UV8mFMZh"
@@ -13,6 +11,7 @@ API_URL = f"https://moneroocean.stream/api/user/{WALLET}"
 TG_API = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 last_confirmed = 0.0
+last_update_id = 0
 
 def get_confirmed():
     try:
@@ -50,17 +49,17 @@ def check_xmr_loop():
                 last_confirmed = current
         time.sleep(300)
 
-def handle_command(command):
-    if command == "/start":
+def handle_command(text):
+    if text == "/start":
         return "👋 Bot is running and monitoring your Monero wallet for confirmations."
-    elif command == "/help":
+    elif text == "/help":
         return (
             "🛠 *Available Commands:*\n"
             "`/start` - Start the bot\n"
             "`/balance` - Show current confirmed XMR\n"
             "`/help` - Show this help message"
         )
-    elif command == "/balance":
+    elif text == "/balance":
         current = get_confirmed()
         if current is not None:
             return f"💰 *Confirmed XMR Balance:*\n`{current:.12f}` XMR"
@@ -69,32 +68,32 @@ def handle_command(command):
     else:
         return "❓ Unknown command. Use /help"
 
-class TelegramHandler(BaseHTTPRequestHandler):
-    def do_POST(self):
-        length = int(self.headers.get('content-length'))
-        body = self.rfile.read(length)
-        data = json.loads(body)
+def check_commands_loop():
+    global last_update_id
+    print("💬 Telegram polling started...")
+    while True:
+        try:
+            url = f"{TG_API}/getUpdates?timeout=10&offset={last_update_id + 1}"
+            r = requests.get(url)
+            updates = r.json()["result"]
 
-        if "message" in data and "text" in data["message"]:
-            text = data["message"]["text"]
-            chat_id = str(data["message"]["chat"]["id"])
-            if chat_id == CHAT_ID or CHAT_ID.startswith("-"):  # private or group
-                response = handle_command(text.strip())
-                if response:
-                    requests.get(f"{TG_API}/sendMessage", params={
-                        "chat_id": chat_id,
-                        "text": response,
-                        "parse_mode": "Markdown"
-                    })
+            for update in updates:
+                last_update_id = update["update_id"]
+                if "message" in update:
+                    message = update["message"]
+                    chat_id = str(message["chat"]["id"])
+                    if chat_id != CHAT_ID:
+                        continue
+                    text = message.get("text", "").strip()
+                    if text:
+                        response = handle_command(text)
+                        if response:
+                            send_message(response)
+        except Exception as e:
+            print("Polling error:", e)
 
-        self.send_response(200)
-        self.end_headers()
-
-def start_bot_webhook():
-    server = HTTPServer(('0.0.0.0', 8000), TelegramHandler)
-    print("🌐 Telegram command listener started on port 8000")
-    server.serve_forever()
+        time.sleep(1)
 
 if __name__ == "__main__":
     threading.Thread(target=check_xmr_loop, daemon=True).start()
-    start_bot_webhook()
+    check_commands_loop()
